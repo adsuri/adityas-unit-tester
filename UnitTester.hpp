@@ -14,12 +14,12 @@
 class UnitTester {
  private:
   inline static std::string current_assertion_failures_;
-  inline static const std::string RED = "\033[31m";
-  inline static const std::string GREEN = "\033[32m";
-  inline static const std::string YELLOW = "\033[33m";
-  inline static const std::string BLUE = "\033[34m";
-  inline static const std::string BOLD = "\033[1m";
-  inline static const std::string RESET = "\033[0m";
+  inline static const std::string RED_ = "\033[31m";
+  inline static const std::string GREEN_ = "\033[32m";
+  inline static const std::string YELLOW_ = "\033[33m";
+  inline static const std::string BLUE_ = "\033[34m";
+  inline static const std::string BOLD_ = "\033[1m";
+  inline static const std::string RESET_ = "\033[0m";
 
  public:
   struct Test {
@@ -40,7 +40,7 @@ class UnitTester {
     NearEqualComparator()
       : epsilon(0.00001) {}
 
-    NearEqualComparator(int epsilon_)
+    NearEqualComparator(double epsilon_)
       : epsilon(epsilon_) {}
 
     bool operator()(double a, double b) {
@@ -64,8 +64,9 @@ class UnitTester {
       try {
         test.function();
       } catch (std::exception &e) {
-        std::cout << RED << "Unhandled exception happened within test " << test.name << RESET << std::endl
+        std::cout << RED_ << "Unhandled exception happened within test " << test.name << RESET_ << std::endl
           << e.what() << std::endl << std::endl;
+        current_assertion_failures_ = "";
         continue;
       }
 
@@ -89,7 +90,7 @@ class UnitTester {
   static void expect(const std::string &file, int line, const std::string &name, const T& a, const T& b, std::string operation, Comp &&comp) {
     if (!comp(a, b)) {
       std::ostringstream msg;
-      msg << std::setprecision(std::numeric_limits<T>::max_digits10) << BOLD << file << ":" << line << RESET << ": " << YELLOW << name << RESET
+      msg << std::setprecision(std::numeric_limits<T>::max_digits10) << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_
       << ": Expected " << a << ' ' << operation << ' ' << b << ", but the condition was false. \n";
       current_assertion_failures_ += msg.str();
     }
@@ -98,7 +99,7 @@ class UnitTester {
   static void expect_bool(const std::string &file, int line, const std::string &name, bool a, bool target) {
     if (a != target) {
       std::ostringstream msg;
-      msg << BOLD << file << ":" << line << RESET << ": " << YELLOW << name << RESET << "\033[0m: Expected statement to be " << (target ? "true" : "false")
+      msg << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_ << "\033[0m: Expected statement to be " << (target ? "true" : "false")
         << ", but statement was " << (a ? "true" : "false") << " \n";
       current_assertion_failures_ += msg.str();
     }
@@ -159,7 +160,7 @@ class UnitTester {
   UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_EQUAL("#a", "#b")", (a), (b), ">=", std::greater_equal<>{})
 
 #define EXPECT_GT_EQUAL_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">"=, (Comp))
+  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">=", (Comp))
 
 #define EXPECT_TRUE(a) \
   UnitTester::expect_bool(__FILE__, __LINE__, "EXPECT_TRUE("#a")", (a), true)
