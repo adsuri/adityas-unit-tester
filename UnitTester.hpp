@@ -25,13 +25,22 @@
 
 class UnitTester {
  private:
-  inline static std::string current_assertion_failures_;
   inline static const std::string RED_ = "\033[31m";
   inline static const std::string GREEN_ = "\033[32m";
   inline static const std::string YELLOW_ = "\033[33m";
   inline static const std::string BLUE_ = "\033[34m";
   inline static const std::string BOLD_ = "\033[1m";
   inline static const std::string RESET_ = "\033[0m";
+
+  struct AssertionFailure_ {
+    std::string file;
+    std::string name;
+    std::string msg;
+    int line;
+  };
+
+  inline static std::vector<AssertionFailure_> current_assertion_failures_;
+  friend std::ostream &operator<<(std::ostream &os, AssertionFailure_);
 
  public:
   struct Test {
@@ -83,7 +92,7 @@ class UnitTester {
       }
 
       if (!current_assertion_failures_.empty()) {
-        std::cout << current_assertion_failures_;
+        for (const auto &failure : current_assertion_failures_) { std::cout << failure << std::endl; }
         std::cout << RED_ << "Test " << test.name << " failed." << RESET_ << std::endl << std::endl;
       } else {
         std::cout << GREEN_ << "Test " << test.name << " passed!" << RESET_ << std::endl << std::endl;
@@ -101,21 +110,21 @@ class UnitTester {
   }
 
   template <typename Comp, typename T>
-  static void expect(const std::string &file, int line, const std::string &name, const T& a, const T& b, std::string operation, Comp &&comp) {
+  static void expect_numerical(const std::string &file, int line, const std::string &name, const T& a, const T& b, std::string operation, Comp &&comp) {
     if (!comp(a, b)) {
       std::ostringstream msg;
-      msg << std::setprecision(std::numeric_limits<T>::max_digits10) << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_
-      << ": Expected " << a << ' ' << operation << ' ' << b << ", but the condition was false. \n";
-      current_assertion_failures_ += msg.str();
+      msg << std::setprecision(std::numeric_limits<T>::max_digits10) << "Expected " << a << ' '
+        << operation << ' ' << b << ", but the condition was false.";
+      current_assertion_failures_.push_back({file, name, msg.str(), line});
     }
   }
 
   static void expect_bool(const std::string &file, int line, const std::string &name, bool a, bool target) {
     if (a != target) {
       std::ostringstream msg;
-      msg << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_ << ": Expected statement to be " << (target ? "true" : "false")
-        << ", but statement was " << (a ? "true" : "false") << " \n";
-      current_assertion_failures_ += msg.str();
+      msg << "Expected statement to be " << (target ? "true" : "false") << ", but statement was "
+        << (a ? "true." : "false.");
+      current_assertion_failures_.push_back({file, name, msg.str(), line});
     }
   }
 
@@ -127,16 +136,14 @@ class UnitTester {
       return;
     } catch (...) {
       std::ostringstream msg;
-      msg << BOLD_ << file << ": " << line << RESET_ << ": " << YELLOW_ << name << RESET_
-        << ": Function threw an unexpected exception.\n";
-        current_assertion_failures_ += msg.str();
+      msg << "Function threw an unexpected exception.";
+      current_assertion_failures_.push_back({file, name, msg.str(), line});
       return;
     }
 
     std::ostringstream msg;
-    msg << BOLD_ << file << ": " << line << RESET_ << ": " << YELLOW_ << name << RESET_
-      << ": Function did not throw any exception.\n";
-      current_assertion_failures_ += msg.str();
+    msg << "Function did not throw any exception.";
+    current_assertion_failures_.push_back({file, name, msg.str(), line});
   }
 
   template <typename FuncType>
@@ -146,19 +153,34 @@ class UnitTester {
     } catch (const std::exception& e) {
       std::ostringstream msg;
       msg << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_
-        << ": Function threw an unexpected exception: \n" << e.what() << "\n";
-
-      current_assertion_failures_ += msg.str();
+        << ": Function threw an unexpected exception:\n" << e.what();
+      current_assertion_failures_.push_back({file, name, msg.str(), line});
       return;
     } catch (...) {
       std::ostringstream msg;
-      msg << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_
-        << ": Unexpected non-standard exception.\n";
+      msg << "Unexpected non-standard exception.";
 
-      current_assertion_failures_ += msg.str();
+      current_assertion_failures_.push_back({file, name, msg.str(), line});
+    }
+  }
+
+  template <typename Ptr>
+  static void expect_ptr(const std::string &file, int line, const std::string &name, const Ptr &ptr, bool expect_null) {
+    if ((ptr == nullptr) != expect_null) {
+      std::ostringstream msg;
+      msg << "Expected pointer to be " << (expect_null ? "null" : "non-null")
+        << ", but the condition was false.";
+      
+      current_assertion_failures_.push_back({file, name, msg.str(), line});
     }
   }
 };
+
+std::ostream &operator<<(std::ostream &os, UnitTester::AssertionFailure_ failure) {
+  os << UnitTester::BOLD_ << failure.file << ":" << failure.line << UnitTester::RESET_ << ": "
+    << failure.msg;
+  return os;
+}
 
 #define TEST(name) \
   static void test_##name(); \
@@ -169,52 +191,53 @@ class UnitTester {
   int main (int argc_, char **argv_) { return UnitTester::run_all(argc_, argv_); } \
 
 #define EXPECT_EQUAL(a, b) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL("#a", "#b")", (a), (b), "==", std::equal_to<>{})
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_EQUAL("#a", "#b")", (a), (b), "==", std::equal_to<>{})
 
 #define EXPECT_EQUAL_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), "==", (Comp))
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), "==", (Comp))
 
 
 #define EXPECT_NEAR(a, b) \
- UnitTester::expect(__FILE__, __LINE__, "EXPECT_NEAR("#a", "#b")", (a), (b), "~=", UnitTester::NearEqualComparator())
+ UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_NEAR("#a", "#b")", (a), (b), "~=", UnitTester::NearEqualComparator())
 
 #define EXPECT_NEAR_EPSILON(a, b, e) \
- UnitTester::expect(__FILE__, __LINE__, "EXPECT_NEAR_EPSILON("#a", "#b", "#e")", (a), (b), "~=", UnitTester::NearEqualComparator(e))
+ UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_NEAR_EPSILON("#a", "#b", "#e")", (a), (b), "~=", UnitTester::NearEqualComparator(e))
 
 
 #define EXPECT_NOT_EQUAL(a, b) \
- UnitTester::expect(__FILE__, __LINE__, "EXPECT_NOT_EQUAL("#a", "#b")", (a), (b), "!=", std::not_equal_to<>{})
+ UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_NOT_EQUAL("#a", "#b")", (a), (b), "!=", std::not_equal_to<>{})
 
 #define EXPECT_NOT_EQUAL_CUSTOM(a, b, Comp) \
- UnitTester::expect(__FILE__, __LINE__, "EXPECT_NOT_EQUAL_CUSOM("#a", "#b", "#Comp")", (a), (b), "!=", (Comp))
+ UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_NOT_EQUAL_CUSOM("#a", "#b", "#Comp")", (a), (b), "!=", (Comp))
 
 
 #define EXPECT_LT(a, b) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT("#a", "#b")", (a), (b), "<", std::less<>{})
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_LT("#a", "#b")", (a), (b), "<", std::less<>{})
 
 #define EXPECT_LT_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_CUSTOM("#a", "#b", "#Comp")", (a), (b), "<", (Comp))
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_LT_CUSTOM("#a", "#b", "#Comp")", (a), (b), "<", (Comp))
 
 
 #define EXPECT_LT_EQUAL(a, b) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_EQUAL("#a", "#b")", (a), (b), "<=", std::less_equal<>{})
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_LT_EQUAL("#a", "#b")", (a), (b), "<=", std::less_equal<>{})
 
 #define EXPECT_LT_EQUAL_CUSTOM(a, b, Comp) \
   UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), "<=", (Comp))
 
 
 #define EXPECT_GT(a, b) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT("#a", "#b")", (a), (b), ">", std::greater<>{})
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT("#a", "#b")", (a), (b), ">", std::greater<>{})
 
 #define EXPECT_GT_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">", (Comp))
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">", (Comp))
 
 
 #define EXPECT_GT_EQUAL(a, b) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_EQUAL("#a", "#b")", (a), (b), ">=", std::greater_equal<>{})
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT_EQUAL("#a", "#b")", (a), (b), ">=", std::greater_equal<>{})
 
 #define EXPECT_GT_EQUAL_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">=", (Comp))
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">=", (Comp))
+
 
 #define EXPECT_TRUE(a) \
   UnitTester::expect_bool(__FILE__, __LINE__, "EXPECT_TRUE("#a")", (a), true)
@@ -228,5 +251,11 @@ class UnitTester {
 
 #define EXPECT_NO_THROW(func) \
   UnitTester::expect_no_throw(__FILE__, __LINE__, "EXPECT_NO_THROW("#func")", (func))
+
+#define EXPECT_NULL(ptr) \
+  UnitTester::expect_ptr(__FILE__, __LINE__, "EXPECT_NULL("#ptr")", (ptr), true)
+
+#define EXPECT_NON_NULL(ptr) \
+  UnitTester::expect_ptr(__FILE__, __LINE__, "EXPECT_NON_NULL("#ptr")", (ptr), false)
 
 #endif
