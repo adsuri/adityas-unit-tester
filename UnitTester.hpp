@@ -21,6 +21,7 @@
 #include <cmath>
 #include <iomanip>
 #include <limits>
+#include <utility>
 
 class UnitTester {
  private:
@@ -74,22 +75,22 @@ class UnitTester {
       std::cout << "Running test: " << BLUE_ << test.name << RESET_ << '\n';
       try {
         test.function();
-      } catch (std::exception &e) {
+      } catch (const std::exception &e) {
         std::cout << RED_ << "Unhandled exception happened within test " << test.name << RESET_ << std::endl
           << e.what() << std::endl << std::endl;
-        current_assertion_failures_ = "";
+        current_assertion_failures_.clear();
         continue;
       }
 
-      if (current_assertion_failures_ != "") {
+      if (!current_assertion_failures_.empty()) {
         std::cout << current_assertion_failures_;
-        std::cout << "Test " << test.name << " failed." << std::endl << std::endl;
+        std::cout << RED_ << "Test " << test.name << " failed." << RESET_ << std::endl << std::endl;
       } else {
-        std::cout << "Test " << test.name << " passed!" << std::endl << std::endl;
+        std::cout << GREEN_ << "Test " << test.name << " passed!" << RESET_ << std::endl << std::endl;
         ++successes;
       }
 
-      current_assertion_failures_ = "";
+      current_assertion_failures_.clear();
     }
 
     size_t n = all_tests.size();
@@ -112,8 +113,48 @@ class UnitTester {
   static void expect_bool(const std::string &file, int line, const std::string &name, bool a, bool target) {
     if (a != target) {
       std::ostringstream msg;
-      msg << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_ << "\033[0m: Expected statement to be " << (target ? "true" : "false")
+      msg << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_ << ": Expected statement to be " << (target ? "true" : "false")
         << ", but statement was " << (a ? "true" : "false") << " \n";
+      current_assertion_failures_ += msg.str();
+    }
+  }
+
+  template <typename ExceptionType, typename FuncType>
+  static void expect_throws(const std::string &file, int line, const std::string &name, FuncType &&func) {
+    try {
+      std::forward<FuncType>(func)();
+    } catch (const ExceptionType &e) {
+      return;
+    } catch (...) {
+      std::ostringstream msg;
+      msg << BOLD_ << file << ": " << line << RESET_ << ": " << YELLOW_ << name << RESET_
+        << ": Function threw an unexpected exception.\n";
+        current_assertion_failures_ += msg.str();
+      return;
+    }
+
+    std::ostringstream msg;
+    msg << BOLD_ << file << ": " << line << RESET_ << ": " << YELLOW_ << name << RESET_
+      << ": Function did not throw any exception.\n";
+      current_assertion_failures_ += msg.str();
+  }
+
+  template <typename FuncType>
+  static void expect_no_throw(const std::string &file, int line, const std::string &name, FuncType &&func) {
+    try {
+      std::forward<FuncType>(func)();
+    } catch (const std::exception& e) {
+      std::ostringstream msg;
+      msg << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_
+        << ": Function threw an unexpected exception: \n" << e.what() << "\n";
+
+      current_assertion_failures_ += msg.str();
+      return;
+    } catch (...) {
+      std::ostringstream msg;
+      msg << BOLD_ << file << ":" << line << RESET_ << ": " << YELLOW_ << name << RESET_
+        << ": Unexpected non-standard exception.\n";
+
       current_assertion_failures_ += msg.str();
     }
   }
@@ -142,10 +183,10 @@ class UnitTester {
 
 
 #define EXPECT_NOT_EQUAL(a, b) \
- UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL("#a", "#b")", (a), (b), "==", std::not_equal_to<>{})
+ UnitTester::expect(__FILE__, __LINE__, "EXPECT_NOT_EQUAL("#a", "#b")", (a), (b), "!=", std::not_equal_to<>{})
 
 #define EXPECT_NOT_EQUAL_CUSTOM(a, b, Comp) \
- UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL("#a", "#b", "#Comp")", (a), (b), "!=", (Comp))
+ UnitTester::expect(__FILE__, __LINE__, "EXPECT_NOT_EQUAL_CUSOM("#a", "#b", "#Comp")", (a), (b), "!=", (Comp))
 
 
 #define EXPECT_LT(a, b) \
@@ -180,5 +221,12 @@ class UnitTester {
 
 #define EXPECT_FALSE(a) \
   UnitTester::expect_bool(__FILE__, __LINE__, "EXPECT_FALSE("#a")", (a), false)
+
+
+#define EXPECT_THROWS(func, e) \
+  UnitTester::expect_throws<e>(__FILE__, __LINE__, "EXPECT_THROWS("#func", "#e")", (func))
+
+#define EXPECT_NO_THROW(func) \
+  UnitTester::expect_no_throw(__FILE__, __LINE__, "EXPECT_NO_THROW("#func")", (func))
 
 #endif
