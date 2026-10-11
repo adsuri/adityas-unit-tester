@@ -10,10 +10,14 @@
 
 class UnitTester {
  private:
-  inline static std::string current_expect_failures_;
+  inline static std::string current_assertion_failures_;
+  inline static const std::string RED = "\033[31m";
+  inline static const std::string GREEN = "\033[32m";
+  inline static const std::string YELLOW = "\033[33m";
+  inline static const std::string RESET   = "\033[0m";
 
  public:
-  struct TestType {
+  struct Test {
     std::string name;
     void (*function)();
   };
@@ -23,7 +27,7 @@ class UnitTester {
 
   inline static double epsilon = 0.00001;
 
-  inline static std::vector<TestType> all_tests{};
+  inline static std::vector<Test> all_tests{};
 
   static bool register_test(const char* name, void (*function)()) {
     all_tests.push_back({name, function});
@@ -34,43 +38,50 @@ class UnitTester {
     argc = argc_;
     argv= argv_;
 
+    size_t successes = 0;
+
     for (const auto& test : all_tests) {
       std::cout << "Running test: " << test.name << '\n';
       try {
         test.function();
       } catch (std::exception &e) {
-        std::cout << "Unhandled exception happened within test " << test.name << ":" << std::endl
-          << e.what() << std::endl;
+        std::cout << RED << "Unhandled exception happened within test " << test.name << RESET << std::endl
+          << e.what() << std::endl << "--------" << std::endl;
         break;
       }
 
-      if (current_expect_failures_ != "") {
-        std::cout << current_expect_failures_;
+      if (current_assertion_failures_ != "") {
+        std::cout << current_assertion_failures_;
+        std::cout << "Test " << test.name << " failed." << std::endl << "--------" << std::endl;
+      } else {
+        std::cout << "Test " << test.name << " passed!" << std::endl << "--------" << std::endl;
+        ++successes;
       }
 
-      current_expect_failures_ = "";
+      current_assertion_failures_ = "";
     }
 
-    std::cout << "Finished " << all_tests.size()
-      << " tests.\n";
+    size_t n = all_tests.size();
+    std::cout << "Finished " << n << " test(s). " << successes << "/" << n
+      << " tests were successful." << std::endl;
   }
 
   template <typename Comp, typename T>
-  static void expect(const std::string &name, const T& a, const T& b, std::string operation, Comp &comp) {
+  static void expect(const std::string &name, const T& a, const T& b, std::string operation, Comp &&comp) {
     if (!comp(a, b)) {
       std::ostringstream msg;
-      msg << name << ": Expected " << a << ' ' << operation << ' ' << b
+      msg << YELLOW << name << RESET << ": Expected " << a << ' ' << operation << ' ' << b
         << ", but the condition was false. \n";
-      current_expect_failures_ += msg.str();
+      current_assertion_failures_ += msg.str();
     }
   }
 
   static void expect_bool(const std::string &name, bool a, bool target) {
     if (a != target) {
       std::ostringstream msg;
-      msg << name << ": Expected statement to be " << (target ? "true" : "false")
-        << ", but statement was " << (a ? "true" : "false") << ' \n';
-      current_expect_failures_ += msg.str();
+      msg << YELLOW << name << RESET << "\033[0m: Expected statement to be " << (target ? "true" : "false")
+        << ", but statement was " << (a ? "true" : "false") << " \n";
+      current_assertion_failures_ += msg.str();
     }
   }
 };
