@@ -159,7 +159,6 @@ class UnitTester {
     } catch (...) {
       std::ostringstream msg;
       msg << "Unexpected non-standard exception.";
-
       current_assertion_failures_.push_back({file, name, msg.str(), line});
     }
   }
@@ -170,7 +169,15 @@ class UnitTester {
       std::ostringstream msg;
       msg << "Expected pointer to be " << (expect_null ? "null" : "non-null")
         << ", but the condition was false.";
-      
+      current_assertion_failures_.push_back({file, name, msg.str(), line});
+    }
+  }
+
+  template <typename Container>
+  static void expect_size(const std::string &file, int line, const std::string &name, Container container, size_t size) {
+    if (container.size() != size) {
+      std::ostringstream msg;
+      msg << "Expected container size to be " << size << ", but size was " << container.size();
       current_assertion_failures_.push_back({file, name, msg.str(), line});
     }
   }
@@ -252,10 +259,17 @@ std::ostream &operator<<(std::ostream &os, UnitTester::AssertionFailure_ failure
 #define EXPECT_NO_THROW(func) \
   UnitTester::expect_no_throw(__FILE__, __LINE__, "EXPECT_NO_THROW("#func")", (func))
 
+
 #define EXPECT_NULL(ptr) \
   UnitTester::expect_ptr(__FILE__, __LINE__, "EXPECT_NULL("#ptr")", (ptr), true)
 
 #define EXPECT_NON_NULL(ptr) \
   UnitTester::expect_ptr(__FILE__, __LINE__, "EXPECT_NON_NULL("#ptr")", (ptr), false)
+
+#define EXPECT_EMPTY(container) \
+  UnitTester::expect_size(__FILE__, __LINE__, "EXPECT_EMPTY("#container")", (container), 0)
+
+#define EXPECT_SIZE(container, n) \
+  UnitTester::expect_size(__FILE__, __LINE__, "EXPECT_SIZE("#container", "#n")", (container), (n))
 
 #endif
