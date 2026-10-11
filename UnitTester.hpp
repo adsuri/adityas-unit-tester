@@ -35,13 +35,17 @@ class UnitTester {
     argv= argv_;
 
     for (const auto& test : all_tests) {
-      std::cout << "Running: " << test.name << '\n';
+      std::cout << "Running test: " << test.name << '\n';
       try {
         test.function();
       } catch (std::exception &e) {
         std::cout << "Unhandled exception happened within test " << test.name << ":" << std::endl
           << e.what() << std::endl;
         break;
+      }
+
+      if (current_expect_failures_ != "") {
+        std::cout << current_expect_failures_;
       }
 
       current_expect_failures_ = "";
@@ -56,10 +60,17 @@ class UnitTester {
     if (!comp(a, b)) {
       std::ostringstream msg;
       msg << name << ": Expected " << a << ' ' << operation << ' ' << b
-        << ", but the condition was false." << std::endl;
-
+        << ", but the condition was false. \n";
       current_expect_failures_ += msg.str();
-      current_expect_failures_ += '\n';
+    }
+  }
+
+  static void expect_bool(const std::string &name, bool a, bool target) {
+    if (a != target) {
+      std::ostringstream msg;
+      msg << name << ": Expected statement to be " << (target ? "true" : "false")
+        << ", but statement was " << (a ? "true" : "false") << ' \n';
+      current_expect_failures_ += msg.str();
     }
   }
 };
@@ -105,5 +116,11 @@ class UnitTester {
 
 #define EXPECT_GT_EQUAL_CUSTOM(a, b, Comp) \
   UnitTester::expect("EXPECT_GT_EQUAL_CUSTOM("#a", "#b")", (a), (b), ">", (Comp))
+
+#define EXPECT_TRUE(a) \
+  UnitTester::expect_bool("EXPECT_TRUE("#a")", (a), true)
+
+#define EXPECT_FALSE(a) \
+  UnitTester::expect_bool("EXPECT_FALSE("#a")", (a), false)
 
 #endif
