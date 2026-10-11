@@ -22,6 +22,7 @@
 #include <iomanip>
 #include <limits>
 #include <utility>
+#include <algorithm>
 
 class UnitTester {
  private:
@@ -174,10 +175,19 @@ class UnitTester {
   }
 
   template <typename Container>
-  static void expect_size(const std::string &file, int line, const std::string &name, Container container, size_t size) {
+  static void expect_size(const std::string &file, int line, const std::string &name, const Container &container, size_t size) {
     if (container.size() != size) {
       std::ostringstream msg;
       msg << "Expected container size to be " << size << ", but size was " << container.size();
+      current_assertion_failures_.push_back({file, name, msg.str(), line});
+    }
+  }
+
+  template <typename Algorithm, typename Container, typename Pred>
+  static void expect_filter(const std::string &file, int line, const std::string &name, std::string alg_str, const Container &container, Pred &&pred, Algorithm alg) {
+    if (!alg(container.begin(), container.end(), std::forward<Pred>(pred))) {
+      std::ostringstream msg;
+      msg << "Expected " << alg_str << " in container to satisfy predicate, but the condition was false.";
       current_assertion_failures_.push_back({file, name, msg.str(), line});
     }
   }
@@ -200,8 +210,8 @@ std::ostream &operator<<(std::ostream &os, UnitTester::AssertionFailure_ failure
 #define EXPECT_EQUAL(a, b) \
   UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_EQUAL("#a", "#b")", (a), (b), "==", std::equal_to<>{})
 
-#define EXPECT_EQUAL_CUSTOM(a, b, Comp) \
-  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), "==", (Comp))
+#define EXPECT_EQUAL_CUSTOM(a, b, comp) \
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_EQUAL_CUSTOM("#a", "#b", "#comp")", (a), (b), "==", (comp))
 
 
 #define EXPECT_NEAR(a, b) \
@@ -214,36 +224,36 @@ std::ostream &operator<<(std::ostream &os, UnitTester::AssertionFailure_ failure
 #define EXPECT_NOT_EQUAL(a, b) \
  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_NOT_EQUAL("#a", "#b")", (a), (b), "!=", std::not_equal_to<>{})
 
-#define EXPECT_NOT_EQUAL_CUSTOM(a, b, Comp) \
- UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_NOT_EQUAL_CUSOM("#a", "#b", "#Comp")", (a), (b), "!=", (Comp))
+#define EXPECT_NOT_EQUAL_CUSTOM(a, b, comp) \
+ UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_NOT_EQUAL_CUSOM("#a", "#b", "#comp")", (a), (b), "!=", (comp))
 
 
 #define EXPECT_LT(a, b) \
   UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_LT("#a", "#b")", (a), (b), "<", std::less<>{})
 
-#define EXPECT_LT_CUSTOM(a, b, Comp) \
-  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_LT_CUSTOM("#a", "#b", "#Comp")", (a), (b), "<", (Comp))
+#define EXPECT_LT_CUSTOM(a, b, comp) \
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_LT_CUSTOM("#a", "#b", "#comp")", (a), (b), "<", (comp))
 
 
 #define EXPECT_LT_EQUAL(a, b) \
   UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_LT_EQUAL("#a", "#b")", (a), (b), "<=", std::less_equal<>{})
 
-#define EXPECT_LT_EQUAL_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), "<=", (Comp))
+#define EXPECT_LT_EQUAL_CUSTOM(a, b, comp) \
+  UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_EQUAL_CUSTOM("#a", "#b", "#comp")", (a), (b), "<=", (comp))
 
 
 #define EXPECT_GT(a, b) \
   UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT("#a", "#b")", (a), (b), ">", std::greater<>{})
 
-#define EXPECT_GT_CUSTOM(a, b, Comp) \
-  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">", (Comp))
+#define EXPECT_GT_CUSTOM(a, b, comp) \
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT_CUSTOM("#a", "#b", "#comp")", (a), (b), ">", (comp))
 
 
 #define EXPECT_GT_EQUAL(a, b) \
   UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT_EQUAL("#a", "#b")", (a), (b), ">=", std::greater_equal<>{})
 
-#define EXPECT_GT_EQUAL_CUSTOM(a, b, Comp) \
-  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">=", (Comp))
+#define EXPECT_GT_EQUAL_CUSTOM(a, b, comp) \
+  UnitTester::expect_numerical(__FILE__, __LINE__, "EXPECT_GT_EQUAL_CUSTOM("#a", "#b", "#comp")", (a), (b), ">=", (comp))
 
 
 #define EXPECT_TRUE(a) \
@@ -266,10 +276,21 @@ std::ostream &operator<<(std::ostream &os, UnitTester::AssertionFailure_ failure
 #define EXPECT_NON_NULL(ptr) \
   UnitTester::expect_ptr(__FILE__, __LINE__, "EXPECT_NON_NULL("#ptr")", (ptr), false)
 
+
 #define EXPECT_EMPTY(container) \
   UnitTester::expect_size(__FILE__, __LINE__, "EXPECT_EMPTY("#container")", (container), 0)
 
 #define EXPECT_SIZE(container, n) \
   UnitTester::expect_size(__FILE__, __LINE__, "EXPECT_SIZE("#container", "#n")", (container), (n))
+
+
+#define EXPECT_ALL(container, predicate) \
+  UnitTester::expect_filter(__FILE__, __LINE__, "EXPECT_ALL("#container", "#predicate")", "all values", (container), (predicate), std::all_of)
+
+#define EXPECT_ANY(container, predicate) \
+  UnitTester::expect_filter(__FILE__, __LINE__, "EXPECT_ANY("#container", "#predicate")", "all values", (container), (predicate), std::any_of)
+
+#define EXPECT_NONE(container, predicate) \
+  UnitTester::expect_filter(__FILE__, __LINE__, "EXPECT_NONE("#container", "#predicate")", "all values", (container), (predicate), std::none_of)
 
 #endif
