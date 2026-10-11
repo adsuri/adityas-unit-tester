@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <sstream>
 #include <cmath>
+#include <iomanip>
+#include <limits>
 
 class UnitTester {
  private:
@@ -87,8 +89,8 @@ class UnitTester {
   static void expect(const std::string &file, int line, const std::string &name, const T& a, const T& b, std::string operation, Comp &&comp) {
     if (!comp(a, b)) {
       std::ostringstream msg;
-      msg << BOLD << file << ":" << line << RESET << ": " << YELLOW << name << RESET << ": Expected " << a << ' ' << operation << ' ' << b
-        << ", but the condition was false. \n";
+      msg << std::setprecision(std::numeric_limits<T>::max_digits10) << BOLD << file << ":" << line << RESET << ": " << YELLOW << name << RESET
+      << ": Expected " << a << ' ' << operation << ' ' << b << ", but the condition was false. \n";
       current_assertion_failures_ += msg.str();
     }
   }
