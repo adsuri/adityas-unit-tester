@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2026 Aditya Suri
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #ifndef UNIT_TESTER_HPP
 #define UNIT_TESTER_HPP
 
@@ -53,7 +64,7 @@ class UnitTester {
     return true;
   }
 
-  static void run_all(int argc_, char **argv_) {
+  static int run_all(int argc_, char **argv_) {
     argc = argc_;
     argv= argv_;
 
@@ -84,6 +95,8 @@ class UnitTester {
     size_t n = all_tests.size();
     std::cout << "Finished " << n << " test(s). " << successes << "/" << n
       << " tests were successful." << std::endl;
+
+    return successes == all_tests.size() ? 0 : 1;
   }
 
   template <typename Comp, typename T>
@@ -112,7 +125,7 @@ class UnitTester {
   static void test_##name()
 
 #define TEST_MAIN() \
-  int main (int argc_, char **argv_) { UnitTester::run_all(argc_, argv_); } \
+  int main (int argc_, char **argv_) { return UnitTester::run_all(argc_, argv_); } \
 
 #define EXPECT_EQUAL(a, b) \
   UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL("#a", "#b")", (a), (b), "==", std::equal_to<>{})
