@@ -16,4 +16,9 @@ TEST(test_error) {
   throw std::runtime_error("error");
 }
 
+TEST(test_near) {
+  EXPECT_NEAR(0.1 + 0.2, 0.3);
+  EXPECT_FALSE(0.1 + 0.2 == 0.3);
+}
+
 TEST_MAIN()

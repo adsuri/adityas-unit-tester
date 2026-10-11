@@ -64,7 +64,7 @@ class UnitTester {
       } catch (std::exception &e) {
         std::cout << RED << "Unhandled exception happened within test " << test.name << RESET << std::endl
           << e.what() << std::endl << std::endl;
-        break;
+        continue;
       }
 
       if (current_assertion_failures_ != "") {
