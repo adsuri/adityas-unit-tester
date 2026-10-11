@@ -7,6 +7,7 @@
 #include <functional>
 #include <stdexcept>
 #include <sstream>
+#include <cmath>
 
 class UnitTester {
  private:
@@ -27,9 +28,23 @@ class UnitTester {
   inline static int argc = 0;
   inline static char** argv = nullptr;
 
-  inline static double epsilon = 0.00001;
-
   inline static std::vector<Test> all_tests{};
+
+  class NearEqualComparator {
+   private:
+    double epsilon;
+  
+   public:
+    NearEqualComparator()
+      : epsilon(0.00001) {}
+
+    NearEqualComparator(int epsilon_)
+      : epsilon(epsilon_) {}
+
+    bool operator()(double a, double b) {
+      return std::abs(a - b) <= epsilon;
+    }
+  };
 
   static bool register_test(const char* name, void (*function)()) {
     all_tests.push_back({name, function});
@@ -100,35 +115,49 @@ class UnitTester {
   UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL("#a", "#b")", (a), (b), "==", std::equal_to<>{})
 
 #define EXPECT_EQUAL_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL_CUSTOM("#a", "#b")", (a), (b), "==", (Comp))
+  UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), "==", (Comp))
+
+
+#define EXPECT_NEAR(a, b) \
+ UnitTester::expect(__FILE__, __LINE__, "EXPECT_NEAR("#a", "#b")", (a), (b), "~=", UnitTester::NearEqualComparator())
+
+#define EXPECT_NEAR_EPSILON(a, b, e) \
+ UnitTester::expect(__FILE__, __LINE__, "EXPECT_NEAR_EPSILON("#a", "#b", "#e")", (a), (b), "~=", UnitTester::NearEqualComparator(e))
+
+
+#define EXPECT_NOT_EQUAL(a, b) \
+ UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL("#a", "#b")", (a), (b), "==", std::not_equal_to<>{})
+
+#define EXPECT_NOT_EQUAL_CUSTOM(a, b, Comp) \
+ UnitTester::expect(__FILE__, __LINE__, "EXPECT_EQUAL("#a", "#b", "#Comp")", (a), (b), "!=", (Comp))
 
 
 #define EXPECT_LT(a, b) \
   UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT("#a", "#b")", (a), (b), "<", std::less<>{})
 
 #define EXPECT_LT_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_CUSTOM("#a", "#b")", (a), (b), "<", (Comp))
+  UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_CUSTOM("#a", "#b", "#Comp")", (a), (b), "<", (Comp))
 
 
 #define EXPECT_LT_EQUAL(a, b) \
   UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_EQUAL("#a", "#b")", (a), (b), "<=", std::less_equal<>{})
 
 #define EXPECT_LT_EQUAL_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_EQUAL_CUSTOM("#a", "#b")", (a), (b), "<=", (Comp))
+  UnitTester::expect(__FILE__, __LINE__, "EXPECT_LT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), "<=", (Comp))
 
 
 #define EXPECT_GT(a, b) \
   UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT("#a", "#b")", (a), (b), ">", std::greater<>{})
 
 #define EXPECT_GT_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_CUSTOM("#a", "#b")", (a), (b), ">", (Comp))
+  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">", (Comp))
 
 
 #define EXPECT_GT_EQUAL(a, b) \
   UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_EQUAL("#a", "#b")", (a), (b), ">=", std::greater_equal<>{})
 
 #define EXPECT_GT_EQUAL_CUSTOM(a, b, Comp) \
-  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_EQUAL_CUSTOM("#a", "#b")", (a), (b), ">"=, (Comp))
+  UnitTester::expect(__FILE__, __LINE__, "EXPECT_GT_EQUAL_CUSTOM("#a", "#b", "#Comp")", (a), (b), ">"=, (Comp))
 
 #define EXPECT_TRUE(a) \
   UnitTester::expect_bool(__FILE__, __LINE__, "EXPECT_TRUE("#a")", (a), true)
