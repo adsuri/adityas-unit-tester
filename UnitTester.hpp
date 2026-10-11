@@ -71,7 +71,7 @@ class UnitTester {
     size_t successes = 0;
 
     for (const auto& test : all_tests) {
-      std::cout << "Running test: " << BLUE << test.name << RESET << '\n';
+      std::cout << "Running test: " << BLUE_ << test.name << RESET_ << '\n';
       try {
         test.function();
       } catch (std::exception &e) {
